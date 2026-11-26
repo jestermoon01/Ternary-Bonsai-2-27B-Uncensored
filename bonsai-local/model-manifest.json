@@ -1,0 +1,22 @@
+{
+    "runtime":  {
+                    "url":  "https://github.com/PrismML-Eng/llama.cpp/releases/download/prism-b10709-9a9394a/llama-prism-b10709-9a9394a-bin-linux-cuda-12.8-x64.tar.gz",
+                    "filename":  "llama-prism-b10709-9a9394a-bin-linux-cuda-12.8-x64.tar.gz",
+                    "size":  167241119,
+                    "sha256":  "8aec67eb023b251712c7e6490f367b5671bf587eced1436a9b85f4a90c3b7d3d"
+                },
+    "adapter":  {
+                    "revision":  "35b19e309e9d261178f6e2f7df619dc1fc381a55",
+                    "sha256":  "8dce2bebffa85792b57139df2d98cd19201a163efdf88f9b9b8353f2d0ced76f",
+                    "filename":  "bonsai2-27b-uncensored-own42-lora.gguf",
+                    "size":  9683168,
+                    "repository":  "AtomicChat/Ternary-Bonsai-2-27B-Uncensored-LoRA-GGUF"
+                },
+    "base":  {
+                 "revision":  "839bd57023c1558945afea70a74fa83c054f35f9",
+                 "sha256":  "53107f530aa52eb00912263ab1ee29bd199261c87cd7b4ad4ca1318c1fe33ee3",
+                 "filename":  "Ternary-Bonsai-2-27B-PTQ1_0.gguf",
+                 "size":  5946648928,
+                 "repository":  "prism-ml/Ternary-Bonsai-2-27B-gguf"
+             }
+}

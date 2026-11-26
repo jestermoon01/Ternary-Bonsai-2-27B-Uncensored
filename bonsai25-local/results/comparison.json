@@ -1,0 +1,26 @@
+{
+  "mtp": {
+    "median_decode_tps": 115.14707971137415,
+    "min_decode_tps": 107.36033265541353,
+    "max_decode_tps": 117.6724865277656,
+    "drafted": 3356,
+    "accepted": 2780,
+    "draft_acceptance": 0.8283671036948749
+  },
+  "plain": {
+    "median_decode_tps": 78.18554654810984,
+    "min_decode_tps": 76.6168801741203,
+    "max_decode_tps": 78.6920352968009,
+    "drafted": 0,
+    "accepted": 0,
+    "draft_acceptance": null
+  },
+  "median_speedup": 1.4727412519975263,
+  "community_claim_tps": 133,
+  "percent_below_claim": 13.423248337312677,
+  "arithmetic_passed": true,
+  "long_context_passed": true,
+  "streaming_passed": true,
+  "stream_ttft_seconds": 1.0506879999302328,
+  "gpu_peak_sampled_mib": 9904.0
+}

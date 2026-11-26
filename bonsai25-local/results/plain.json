@@ -1,0 +1,836 @@
+{
+  "utc": "2026-11-26T11:18:15.818099+00:00",
+  "label": "plain",
+  "properties": {
+    "default_generation_settings": {
+      "params": {
+        "seed": 4294967295,
+        "temperature": 1.0,
+        "dynatemp_range": 0.0,
+        "dynatemp_exponent": 1.0,
+        "top_k": 20,
+        "top_p": 0.949999988079071,
+        "min_p": 0.0,
+        "top_n_sigma": -1.0,
+        "xtc_probability": 0.0,
+        "xtc_threshold": 0.10000000149011612,
+        "typical_p": 1.0,
+        "repeat_last_n": 64,
+        "repeat_penalty": 1.0,
+        "presence_penalty": 0.0,
+        "frequency_penalty": 0.0,
+        "dry_multiplier": 0.0,
+        "dry_base": 1.75,
+        "dry_allowed_length": 2,
+        "dry_penalty_last_n": 64,
+        "mirostat": 0,
+        "mirostat_tau": 5.0,
+        "mirostat_eta": 0.10000000149011612,
+        "adaptive_target": -1.0,
+        "adaptive_decay": 0.8999999761581421,
+        "max_tokens": -1,
+        "n_predict": -1,
+        "n_keep": 0,
+        "n_discard": 0,
+        "ignore_eos": false,
+        "stream": false,
+        "n_probs": 0,
+        "min_keep": 0,
+        "chat_format": "Content-only",
+        "reasoning_format": "none",
+        "reasoning_in_content": false,
+        "generation_prompt": "",
+        "samplers": [
+          "penalties",
+          "dry",
+          "top_n_sigma",
+          "top_k",
+          "typ_p",
+          "top_p",
+          "min_p",
+          "xtc",
+          "temperature"
+        ],
+        "speculative.types": "none",
+        "timings_per_token": false,
+        "post_sampling_probs": false,
+        "backend_sampling": false,
+        "lora": []
+      },
+      "n_ctx": 32768
+    },
+    "total_slots": 1,
+    "model_alias": "bonsai-2.5-27b",
+    "model_ftype": "PTQ1_0 - 1.75 bpw ternary (group 128)",
+    "model_path": "/models/Ternary-Bonsai-2.5-27B-PTQ1_0-mtp.gguf",
+    "modalities": {
+      "vision": false,
+      "video": false,
+      "audio": false
+    },
+    "media_marker": "<__media_bqLVGTLVaGoRjIuJfsJNJ7EkrKaKBFLZ__>",
+    "endpoint_slots": true,
+    "endpoint_props": false,
+    "endpoint_metrics": false,
+    "ui": true,
+    "ui_settings": {},
+    "chat_template": "{%- set image_count = namespace(value=0) %}\n{%- set video_count = namespace(value=0) %}\n{%- macro render_content(content, do_vision_count, is_system_content=false) %}\n    {%- if content is string %}\n        {{- content }}\n    {%- elif content is iterable and content is not mapping %}\n        {%- for item in content %}\n            {%- if 'image' in item or 'image_url' in item or item.type == 'image' %}\n                {%- if is_system_content %}\n                    {{- raise_exception('System message cannot contain images.') }}\n                {%- endif %}\n                {%- if do_vision_count %}\n                    {%- set image_count.value = image_count.value + 1 %}\n                {%- endif %}\n                {%- if add_vision_id %}\n                    {{- 'Picture ' ~ image_count.value ~ ': ' }}\n                {%- endif %}\n                {{- '<|vision_start|><|image_pad|><|vision_end|>' }}\n            {%- elif 'video' in item or item.type == 'video' %}\n                {%- if is_system_content %}\n                    {{- raise_exception('System message cannot contain videos.') }}\n                {%- endif %}\n                {%- if do_vision_count %}\n                    {%- set video_count.value = video_count.value + 1 %}\n                {%- endif %}\n                {%- if add_vision_id %}\n                    {{- 'Video ' ~ video_count.value ~ ': ' }}\n                {%- endif %}\n                {{- '<|vision_start|><|video_pad|><|vision_end|>' }}\n            {%- elif 'text' in item %}\n                {{- item.text }}\n            {%- else %}\n                {{- raise_exception('Unexpected item type in content.') }}\n            {%- endif %}\n        {%- endfor %}\n    {%- elif content is none or content is undefined %}\n        {{- '' }}\n    {%- else %}\n        {{- raise_exception('Unexpected content type.') }}\n    {%- endif %}\n{%- endmacro %}\n{%- if not messages %}\n    {{- raise_exception('No messages provided.') }}\n{%- endif %}\n{%- set reasoning_instructions = '' %}\n{%- if enable_thinking is undefined or enable_thinking is true %}\n    {%- set resolved_reasoning_effort = reasoning_effort|default('xhigh') %}\n    {%- if resolved_reasoning_effort not in ('xhigh', 'medium', 'low') %}\n        {{- raise_exception('Unexpected reasoning effort ' ~ reasoning_effort ~ '. Supported types are xhigh (default), medium, and low.') }}\n    {%- endif %}\n    {%- if resolved_reasoning_effort == 'xhigh' %}\n        {%- set reasoning_instructions = 'Reasoning effort is set to xhigh. Please think carefully through the task, validate key assumptions, consider plausible alternatives, and prioritize correctness, consistency, and clarity in the final answer.' %}\n    {%- elif resolved_reasoning_effort == 'low' %}\n        {%- set reasoning_instructions = 'Reasoning effort is set to low. Keep your thinking brief and focused, moving directly to the conclusion without unnecessary elaboration.' %}\n    {%- endif %}\n{%- endif %}\n{%- if tools and tools is iterable and tools is not mapping %}\n    {{- '<|im_start|>system\\n' }}\n    {%- if reasoning_instructions %}\n        {{- reasoning_instructions + '\\n\\n' }}\n    {%- endif %}\n    {{- \"# Tools\\n\\nYou have access to the following functions:\\n\\n<tools>\" }}\n    {%- for tool in tools %}\n        {{- \"\\n\" }}\n        {{- tool | tojson }}\n    {%- endfor %}\n    {{- \"\\n</tools>\" }}\n    {{- '\\n\\nIf you choose to call a function ONLY reply in the following format with NO suffix:\\n\\n<tool_call>\\n<function=example_function_name>\\n<parameter=example_parameter_1>\\nvalue_1\\n</parameter>\\n<parameter=example_parameter_2>\\nThis is the value for the second parameter\\nthat can span\\nmultiple lines\\n</parameter>\\n</function>\\n</tool_call>\\n\\n<IMPORTANT>\\nReminder:\\n- Function calls MUST follow the specified format: an inner <function=...></function> block must be nested within <tool_call></tool_call> XML tags\\n- Required parameters MUST be specified\\n- You may provide optional reasoning for your function call in natural language BEFORE the function call, but NOT after\\n- If there is no function call available, answer the question like normal with your current knowledge and do not tell the user about function calls\\n</IMPORTANT>' }}\n    {%- if messages[0].role == 'system' %}\n        {%- set content = render_content(messages[0].content, false, true)|trim %}\n        {%- if content %}\n            {{- '\\n\\n' + content }}\n        {%- endif %}\n    {%- endif %}\n    {{- '<|im_end|>\\n' }}\n{%- else %}\n    {%- if messages[0].role == 'system' %}\n        {%- set content = render_content(messages[0].content, false, true)|trim %}\n        {%- if content %}\n            {{- '<|im_start|>system\\n' + (reasoning_instructions + '\\n\\n' if reasoning_instructions else '')  + content + '<|im_end|>\\n' }}\n        {%- elif reasoning_instructions %}\n            {{- '<|im_start|>system\\n' + reasoning_instructions + '<|im_end|>\\n' }}\n        {%- endif %}\n    {%- elif reasoning_instructions %}\n        {{- '<|im_start|>system\\n' + reasoning_instructions + '<|im_end|>\\n' }}\n    {%- endif %}\n{%- endif %}\n{%- set ns = namespace(multi_step_tool=true, last_query_index=messages|length - 1) %}\n{%- for message in messages[::-1] %}\n    {%- set index = (messages|length - 1) - loop.index0 %}\n    {%- if ns.multi_step_tool and message.role == \"user\" %}\n        {%- set content = render_content(message.content, false)|trim %}\n        {%- if not(content.startswith('<tool_response>') and content.endswith('</tool_response>')) %}\n            {%- set ns.multi_step_tool = false %}\n            {%- set ns.last_query_index = index %}\n        {%- endif %}\n    {%- endif %}\n{%- endfor %}\n{%- if ns.multi_step_tool %}\n    {{- raise_exception('No user query found in messages.') }}\n{%- endif %}\n{%- for message in messages %}\n    {%- set content = render_content(message.content, true)|trim %}\n    {%- if message.role == \"system\" %}\n        {%- if not loop.first %}\n            {{- raise_exception('System message must be at the beginning.') }}\n        {%- endif %}\n    {%- elif message.role == \"user\" %}\n        {{- '<|im_start|>' + message.role + '\\n' + content + '<|im_end|>' + '\\n' }}\n    {%- elif message.role == \"assistant\" %}\n        {%- set reasoning_content = '' %}\n        {%- if message.reasoning_content is string %}\n            {%- set reasoning_content = message.reasoning_content %}\n        {%- endif %}\n        {%- set reasoning_content = reasoning_content|trim %}\n        {%- if preserve_thinking is undefined or preserve_thinking is true or loop.index0 > ns.last_query_index %}\n            {{- '<|im_start|>' + message.role + '\\n<think>\\n' + reasoning_content + '\\n</think>\\n\\n' + content }}\n        {%- else %}\n            {{- '<|im_start|>' + message.role + '\\n' + content }}\n        {%- endif %}\n        {%- if message.tool_calls and message.tool_calls is iterable and message.tool_calls is not mapping %}\n            {%- for tool_call in message.tool_calls %}\n                {%- if tool_call.function is defined %}\n                    {%- set tool_call = tool_call.function %}\n                {%- endif %}\n                {%- if loop.first %}\n                    {%- if content|trim %}\n                        {{- '\\n\\n<tool_call>\\n<function=' + tool_call.name + '>\\n' }}\n                    {%- else %}\n                        {{- '<tool_call>\\n<function=' + tool_call.name + '>\\n' }}\n                    {%- endif %}\n                {%- else %}\n                    {{- '\\n<tool_call>\\n<function=' + tool_call.name + '>\\n' }}\n                {%- endif %}\n                {%- if tool_call.arguments is defined and tool_call.arguments != '' %}\n                    {%- for args_name, args_value in tool_call.arguments|items %}\n                        {{- '<parameter=' + args_name + '>\\n' }}\n                        {%- set args_value = args_value | string if args_value is string else args_value | tojson | safe %}\n                        {{- args_value }}\n                        {{- '\\n</parameter>\\n' }}\n                    {%- endfor %}\n                {%- endif %}\n                {{- '</function>\\n</tool_call>' }}\n            {%- endfor %}\n        {%- endif %}\n        {{- '<|im_end|>\\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if loop.previtem and loop.previtem.role != \"tool\" %}\n            {{- '<|im_start|>user' }}\n        {%- endif %}\n        {{- '\\n<tool_response>\\n' }}\n        {{- content }}\n        {{- '\\n</tool_response>' }}\n        {%- if not loop.last and loop.nextitem.role != \"tool\" %}\n            {{- '<|im_end|>\\n' }}\n        {%- elif loop.last %}\n            {{- '<|im_end|>\\n' }}\n        {%- endif %}\n    {%- else %}\n        {{- raise_exception('Unexpected message role.') }}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|im_start|>assistant\\n' }}\n    {%- if enable_thinking is defined and enable_thinking is false %}\n        {{- '<think>\\n\\n</think>\\n\\n' }}\n    {%- else %}\n        {{- '<think>\\n' }}\n    {%- endif %}\n{%- endif %}",
+    "chat_template_caps": {
+      "supports_object_arguments": true,
+      "supports_parallel_tool_calls": true,
+      "supports_preserve_reasoning": true,
+      "supports_reasoning_effort": true,
+      "supports_string_content": true,
+      "supports_system_role": true,
+      "supports_tool_calls": true,
+      "supports_tools": true,
+      "supports_typed_content": true
+    },
+    "bos_token": "<|endoftext|>",
+    "eos_token": "<|im_end|>",
+    "build_info": "b12232-f70247610",
+    "is_sleeping": false,
+    "cors_proxy_enabled": false
+  },
+  "tests": [
+    {
+      "name": "warmup",
+      "measured": false,
+      "request": {
+        "model": "bonsai-2.5-27b",
+        "messages": [
+          {
+            "role": "user",
+            "content": "Explain briefly why the sky looks blue."
+          }
+        ],
+        "max_tokens": 64,
+        "temperature": 0,
+        "seed": 42,
+        "chat_template_kwargs": {
+          "enable_thinking": false
+        },
+        "cache_prompt": false
+      },
+      "response": {
+        "choices": [
+          {
+            "finish_reason": "length",
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "The sky looks blue because of a phenomenon called **Rayleigh scattering**.\n\nHere is the brief explanation:\n\n1.  **Sunlight is white**: Sunlight actually contains all the colors of the visible spectrum (red, orange, yellow, green, blue, indigo, violet).\n2.  **At"
+            }
+          }
+        ],
+        "created": 1795691897,
+        "model": "bonsai-2.5-27b",
+        "system_fingerprint": "b12232-f70247610",
+        "object": "chat.completion",
+        "usage": {
+          "completion_tokens": 64,
+          "prompt_tokens": 21,
+          "total_tokens": 85,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        },
+        "id": "chatcmpl-d6YlRDZDB6fQ2w4oAKf6cqJrwCNOPlf1",
+        "timings": {
+          "cache_n": 0,
+          "prompt_n": 21,
+          "prompt_ms": 341.722,
+          "prompt_per_token_ms": 16.27247619047619,
+          "prompt_per_second": 61.4534621710045,
+          "predicted_n": 64,
+          "predicted_ms": 816.22,
+          "predicted_per_token_ms": 12.955873015873017,
+          "predicted_per_second": 77.18507265198107
+        }
+      },
+      "elapsed_seconds": 1.1744447000091895,
+      "end_to_end_tokens_per_second": 54.49383866221988,
+      "draft_acceptance": null
+    },
+    {
+      "name": "code-1",
+      "measured": true,
+      "request": {
+        "model": "bonsai-2.5-27b",
+        "messages": [
+          {
+            "role": "user",
+            "content": "Implement a Python LRU cache with get and put operations in O(1). Explain the design, give complete code, and include example tests."
+          }
+        ],
+        "max_tokens": 1024,
+        "temperature": 0,
+        "seed": 42,
+        "chat_template_kwargs": {
+          "enable_thinking": true
+        },
+        "cache_prompt": false
+      },
+      "response": {
+        "choices": [
+          {
+            "finish_reason": "length",
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "",
+              "reasoning_content": "We need answer user: \"Implement a Python LRU cache with get and put operations in O(1). Explain the design, give complete code, and include example tests.\"\n\nNeed produce final with explanation, code, tests. Need likely use OrderedDict or custom doubly linked list + dict. Since ask implement Python LRU cache, O(1). Could provide both? Complete code maybe custom to demonstrate design. Include tests. Need be careful.\n\nNeed think through design: LRU cache capacity n. get(key): if exists, move to most recently used, return value. put(key, value): if exists update and move to MRU; else if full evict LRU, insert. O(1) average with hash map + doubly linked list. Python dict is hash table O(1) average. OrderedDict also O(1) but custom shows design.\n\nNeed include example tests. Could use unittest or simple asserts. Complete code maybe:\n\nclass Node:\n    __slots__ = ('key','value','prev','next')\n    def __init__(self, key=None, value=None): ...\n\nclass LRUCache:\n    def __init__(self, capacity: int):\n        if capacity < 0: raise ValueError\n        self.capacity = capacity\n        self.cache = {}\n        self.head = Node() # dummy most recently used side\n        self.tail = Node() # dummy least recently used side\n        self.head.next = self.tail\n        self.tail.prev = self.head\n\n    def _remove(self, node):\n        node.prev.next = node.next\n        node.next.prev = node.prev\n\n    def _add_front(self, node):\n        node.prev = self.head\n        node.next = self.head.next\n        self.head.next.prev = node\n        self.head.next = node\n\n    def get(self, key):\n        node = self.cache.get(key)\n        if node is None: return -1\n        self._remove(node)\n        self._add_front(node)\n        return node.value\n\n    def put(self, key, value):\n        if self.capacity == 0: return\n        node = self.cache.get(key)\n        if node:\n            node.value = value\n            self._remove(node)\n            self._add_front(node)\n        else:\n            if len(self.cache) >= self.capacity:\n                lru_node = self.tail.prev\n                self._remove(lru_node)\n                del self.cache[lru_node.key]\n            new_node = Node(key, value)\n            self.cache[key] = new_node\n            self._add_front(new_node)\n\nNeed consider capacity 0: get returns -1, put no-op. If capacity negative raise.\n\nTests:\nimport unittest\nclass TestLRUCache(unittest.TestCase):\n    def test_basic_get_put(self):\n        cache = LRUCache(2)\n        cache.put(1,1); cache.put(2,2)\n        self.assertEqual(cache.get(1),1)\n        cache.put(3,3) # evicts 2\n        self.assertEqual(cache.get(2), -1)\n        self.assertEqual(cache.get(3),3)\n        cache.put(4,4) # evicts 1\n        self.assertEqual(cache.get(1), -1)\n        self.assertEqual(cache.get(3),3)\n        self.assertEqual(cache.get(4),4)\n\n    def test_update_existing(self):\n        cache = LRUCache(2)\n        cache.put(1,1); cache.put(2,2)\n        cache.put(1,10)\n        cache.put(3,3) # evicts 2 not 1\n        self.assertEqual(cache.get(1),10)\n        self.assertEqual(cache.get(2),-1)\n        self.assertEqual(cache.get(3),3)\n\n    def test_capacity_zero(self):\n        cache = LRUCache(0)\n        cache.put(1,1)\n        self.assertEqual(cache.get(1), -1)\n\n    def test_negative_capacity(self):\n        with self.assertRaises(ValueError): LRUCache(-1)\n\n    def test_order_after_get(self):\n        cache = LRUCache(3)\n        cache.put(1,1); cache.put(2,2); cache.put(3,3)\n        cache.get(1) # order: 1,3,2\n        cache.put(4,4) # evict 2\n        self.assertEqual(cache.get(2), -1)\n        self.assertEqual(cache.get(1),1)\n        self.assertEqual(cache.get(3),3)\n        self.assertEqual(cache.get(4),4)\n\n    def test_large_random? maybe not.\n\nCould include doctest? Maybe simple main.\n\nNeed explain design: hash map key->node for O(1) lookup; doubly"
+            }
+          }
+        ],
+        "created": 1795691910,
+        "model": "bonsai-2.5-27b",
+        "system_fingerprint": "b12232-f70247610",
+        "object": "chat.completion",
+        "usage": {
+          "completion_tokens": 1024,
+          "prompt_tokens": 81,
+          "total_tokens": 1105,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        },
+        "id": "chatcmpl-jpZ5r9fkTyhP4LLFtV8MPQ36JluIIf21",
+        "timings": {
+          "cache_n": 0,
+          "prompt_n": 81,
+          "prompt_ms": 227.243,
+          "prompt_per_token_ms": 2.8054691358024693,
+          "prompt_per_second": 356.4466232183169,
+          "predicted_n": 1024,
+          "predicted_ms": 13267.899,
+          "predicted_per_token_ms": 12.969598240469209,
+          "predicted_per_second": 77.10339067247949
+        }
+      },
+      "elapsed_seconds": 13.681901399977505,
+      "end_to_end_tokens_per_second": 74.84339859383022,
+      "draft_acceptance": null
+    },
+    {
+      "name": "reasoning-1",
+      "measured": true,
+      "request": {
+        "model": "bonsai-2.5-27b",
+        "messages": [
+          {
+            "role": "user",
+            "content": "A warehouse has 120 boxes. Each morning it ships one third of its boxes and receives 24 new boxes. Find a formula for its inventory after n days, its long-run limit, and the first day when inventory falls below 80. Explain each step."
+          }
+        ],
+        "max_tokens": 1024,
+        "temperature": 0,
+        "seed": 42,
+        "chat_template_kwargs": {
+          "enable_thinking": true
+        },
+        "cache_prompt": false
+      },
+      "response": {
+        "choices": [
+          {
+            "finish_reason": "length",
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "",
+              "reasoning_content": "We need answer math problem. Need solve carefully. Problem: warehouse has 120 boxes. Each morning it ships one third of its boxes and receives 24 new boxes. Find formula for inventory after n days, long-run limit, first day when inventory falls below 80. Explain each step.\n\nNeed interpret sequence. Initial inventory? \"has 120 boxes. Each morning it ships one third of its boxes and receives 24 new boxes.\" Need define after n days. Ambiguity: order of operations? Each morning ships one third of its boxes and receives 24 new boxes. If starts day 1 morning with 120, ships 1/3 of 120 = 40, receives 24, end day 1 inventory = 104. Or maybe after n days means after n mornings? Need formula. Recurrence: I_{n+1} = (2/3) I_n + 24 if I_n is inventory at start of day n (before shipping) or after previous day's receipt. If I_0=120. Then after n days (end of day n) I_n = (2/3) I_{n-1}+24. Solve: fixed point L = (2/3)L+24 => L/3=24 => L=72. I_n = 72 + (120-72)(2/3)^n = 72 + 48(2/3)^n. Check n=1: 72+32=104. Good.\n\nLong-run limit 72.\n\nFirst day when inventory falls below 80. Need find smallest n such that I_n < 80? If after n days. I_n = 72+48(2/3)^n < 80 => 48(2/3)^n < 8 => (2/3)^n < 1/6. Take logs: n > ln(1/6)/ln(2/3). Since ln(2/3) negative. Compute. ln(1/6)=-1.791759, ln(2/3)=-0.405465, ratio=4.418... So n > 4.418, smallest integer n=5. Check I_4 = 72+48*(16/81)=72+768/81=72+9.4815=81.4815 >80. I_5=72+48*(32/243)=72+1536/243=72+6.321=78.321 <80. So first day after 5 days.\n\nBut need consider if \"first day when inventory falls below 80\" could be during morning after shipping before receiving? The wording: Each morning it ships one third of its boxes and receives 24 new boxes. Find formula for inventory after n days, long-run limit, and first day when inventory falls below 80. If inventory after n days likely end of day. But \"falls below 80\" could occur after shipping in morning before receiving? Let's examine. If start day 5 with I_4=81.48. Morning ships 1/3: 54.32, below 80, then receives 24 -> 78.32. So it falls below 80 on day 5 morning after shipping. If only after days, day 5. If checking after shipping before receiving, day 5 too? Let's see day 4 start I_3? I_3=72+48*(8/27)=72+14.222=86.222. Ship -> 57.48 below 80. Wait if checking after shipping, it falls below 80 on day 2? Start day 2 I_1=104, ship 34.67 -> 69.33 below 80. That seems too trivial and not likely. The phrase \"inventory after n days\" suggests after receiving. \"first day when inventory falls below 80\" likely after daily operations. But could be ambiguous. Need maybe mention assumption. We can state assuming inventory is measured after the morning shipment and receipt (end of day). If instead measured immediately after shipment, it would be below 80 on day 2. But likely answer day 5. Need decide. The problem likely from recurrence sequences: initial 120, each day ships 1/3 and receives 24. Find formula, limit, first"
+            }
+          }
+        ],
+        "created": 1795691924,
+        "model": "bonsai-2.5-27b",
+        "system_fingerprint": "b12232-f70247610",
+        "object": "chat.completion",
+        "usage": {
+          "completion_tokens": 1024,
+          "prompt_tokens": 109,
+          "total_tokens": 1133,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        },
+        "id": "chatcmpl-2tGj5aj6oTW7yejbbYUMsGd0LXdGvl7C",
+        "timings": {
+          "cache_n": 0,
+          "prompt_n": 109,
+          "prompt_ms": 246.642,
+          "prompt_per_token_ms": 2.262770642201835,
+          "prompt_per_second": 441.93608550044195,
+          "predicted_n": 1024,
+          "predicted_ms": 13352.149,
+          "predicted_per_token_ms": 13.051954056695992,
+          "predicted_per_second": 76.6168801741203
+        }
+      },
+      "elapsed_seconds": 13.874434700002894,
+      "end_to_end_tokens_per_second": 73.80480878257234,
+      "draft_acceptance": null
+    },
+    {
+      "name": "prose-1",
+      "measured": true,
+      "request": {
+        "model": "bonsai-2.5-27b",
+        "messages": [
+          {
+            "role": "user",
+            "content": "Write a detailed guide of about 700 words to designing reliable backups for a small software company. Cover restoration tests, retention, encryption, offsite copies and operational ownership."
+          }
+        ],
+        "max_tokens": 1024,
+        "temperature": 0,
+        "seed": 42,
+        "chat_template_kwargs": {
+          "enable_thinking": false
+        },
+        "cache_prompt": false
+      },
+      "response": {
+        "choices": [
+          {
+            "finish_reason": "length",
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "# Designing Reliable Backups for a Small Software Company\n\nFor a small software company, data loss is not just an inconvenience; it is an existential threat. A single corrupted database, a ransomware attack, or an accidental deletion can halt development, breach client trust, and drain limited resources. Designing a backup strategy requires moving beyond the \"set it and forget it\" mentality. A reliable backup system is not merely about storing data; it is about guaranteeing that you can actually restore it when you need it. This guide outlines the critical pillars of a robust backup strategy: restoration testing, retention policies, encryption, offsite redundancy, and operational ownership.\n\n### 1. The Golden Rule: Test Your Restorations\n\nThe most common failure in backup strategies is the assumption that a backup exists because it was created. A backup that has never been restored is not a backup; it is a hope. For a software company, where data integrity is paramount, you must treat restoration as a core operational task.\n\nImplement a quarterly restoration test schedule. Do not just restore a file; restore entire virtual machines or database instances into an isolated, sandboxed environment. Verify that the application starts, that data integrity checks pass, and that user access works. Document the time it takes to restore (Recovery Time Objective, or RTO) and the amount of data lost (Recovery Point Objective, or RPO). If a restore takes 12 hours, you need to know that now, not during a crisis. If your RPO is 24 hours, you must accept that you might lose a day\u2019s worth of code commits or client data. Align these metrics with your business risk tolerance.\n\n### 2. Retention Policies: Balancing Cost and Compliance\n\nRetention policies determine how long you keep backups and how often you keep them. For a small software company, you need a tiered approach to balance storage costs with safety.\n\n*   **Daily Backups:** Keep these for 30 days. This allows you to recover from recent mistakes or minor incidents.\n*   **Weekly Backups:** Keep these for 12 weeks. This protects against longer-term issues or gradual data corruption.\n*   **Monthly Backups:** Keep these for 12 months. This is crucial for compliance, legal holds, and recovering from major disasters.\n*   **Yearly Backups:** Keep these for 5\u20137 years. This is often required for tax records, audit trails, and long-term project archives.\n\nAutomate the deletion of old backups to prevent storage costs from spiraling. However, never delete a backup until you have verified that the next tier of backups is intact and accessible.\n\n### 3. Encryption: Protecting Data in Transit and at Rest\n\nSoftware companies handle sensitive intellectual property, client data, and often personally identifiable information (PII). Encryption is non-negotiable.\n\n*   **At Rest:** Ensure that all backup data is encrypted using strong algorithms (e.g., AES-256). This protects your backups if they are stolen or if the storage media is compromised.\n*   **In Transit:** Use TLS 1.2 or higher for all data transfers between your primary systems and backup storage.\n*   **Key Management:** This is often overlooked. If you lose the encryption keys, your backups are useless. Store keys in a secure, separate location (e.g., a Hardware Security Module or a cloud key management service) with strict access controls. Never store keys with the backups themselves.\n\n### 4. Offsite Copies: The 3-2-1 Rule\n\nThe industry standard is the 3-2-1 rule: Keep three copies of your data, on two different types of media, with one copy offsite. For a small software company, this translates to:\n\n*   **Primary Copy:** Your live production environment.\n*   **Secondary Copy:** A local backup on a different server or NAS (Network Attached Storage) within your office or data center. This is for quick, local restores.\n*   **Tertiary Copy:** An offsite backup in the cloud (e.g., AWS S3, Azure Blob, or Backblaze B2) or a remote data center. This protects you against physical disasters like fire, flood, or theft.\n\nEnsure that your offsite copy is immutable or versioned. Ransomware often targets backups to delete them. Immutable storage (where data cannot be altered or deleted for a set period) or versioning (where old versions are retained) can prevent attackers from wiping your recovery options.\n\n### 5. Operational Ownership: Assigning Responsibility\n\nA backup system fails when no one is responsible for it. In a small company, roles are often blurred, but you must assign clear ownership.\n\n*   **Backup Owner:** A designated IT lead or DevOps engineer who is responsible for configuring, monitoring, and testing backups. This person should have access to all backup logs and alerts.\n*   **"
+            }
+          }
+        ],
+        "created": 1795691937,
+        "model": "bonsai-2.5-27b",
+        "system_fingerprint": "b12232-f70247610",
+        "object": "chat.completion",
+        "usage": {
+          "completion_tokens": 1024,
+          "prompt_tokens": 48,
+          "total_tokens": 1072,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        },
+        "id": "chatcmpl-C8h8M3fHoWoHnzbvIc0NAJCd51c7pTKG",
+        "timings": {
+          "cache_n": 0,
+          "prompt_n": 48,
+          "prompt_ms": 116.332,
+          "prompt_per_token_ms": 2.423583333333333,
+          "prompt_per_second": 412.6121789361483,
+          "predicted_n": 1024,
+          "predicted_ms": 13000.045,
+          "predicted_per_token_ms": 12.707766373411534,
+          "predicted_per_second": 78.6920352968009
+        }
+      },
+      "elapsed_seconds": 13.384833500022069,
+      "end_to_end_tokens_per_second": 76.50450041073067,
+      "draft_acceptance": null
+    },
+    {
+      "name": "code-2",
+      "measured": true,
+      "request": {
+        "model": "bonsai-2.5-27b",
+        "messages": [
+          {
+            "role": "user",
+            "content": "Implement a Python LRU cache with get and put operations in O(1). Explain the design, give complete code, and include example tests."
+          }
+        ],
+        "max_tokens": 1024,
+        "temperature": 0,
+        "seed": 42,
+        "chat_template_kwargs": {
+          "enable_thinking": true
+        },
+        "cache_prompt": false
+      },
+      "response": {
+        "choices": [
+          {
+            "finish_reason": "length",
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "",
+              "reasoning_content": "We need answer user: \"Implement a Python LRU cache with get and put operations in O(1). Explain the design, give complete code, and include example tests.\"\n\nNeed produce final with explanation, code, tests. Need likely use OrderedDict or custom doubly linked list + dict. Since ask implement Python LRU cache, O(1). Could provide both? Complete code maybe custom to demonstrate design. Include tests. Need be careful.\n\nNeed think through design: LRU cache capacity n. get(key): if exists, move to most recently used, return value. put(key, value): if exists update and move to MRU; else if full evict LRU, insert. O(1) average with hash map + doubly linked list. Python dict is hash table O(1) average. OrderedDict also O(1) but custom shows design.\n\nNeed include example tests. Could use unittest or simple asserts. Complete code maybe:\n\nclass Node:\n    __slots__ = ('key','value','prev','next')\n    def __init__(self, key=None, value=None): ...\n\nclass LRUCache:\n    def __init__(self, capacity: int):\n        if capacity < 0: raise ValueError\n        self.capacity = capacity\n        self.cache = {}\n        self.head = Node() # dummy most recently used side\n        self.tail = Node() # dummy least recently used side\n        self.head.next = self.tail\n        self.tail.prev = self.head\n\n    def _remove(self, node):\n        node.prev.next = node.next\n        node.next.prev = node.prev\n\n    def _add_front(self, node):\n        node.prev = self.head\n        node.next = self.head.next\n        self.head.next.prev = node\n        self.head.next = node\n\n    def get(self, key):\n        node = self.cache.get(key)\n        if node is None: return -1\n        self._remove(node)\n        self._add_front(node)\n        return node.value\n\n    def put(self, key, value):\n        if self.capacity == 0: return\n        node = self.cache.get(key)\n        if node:\n            node.value = value\n            self._remove(node)\n            self._add_front(node)\n        else:\n            if len(self.cache) >= self.capacity:\n                lru_node = self.tail.prev\n                self._remove(lru_node)\n                del self.cache[lru_node.key]\n            new_node = Node(key, value)\n            self.cache[key] = new_node\n            self._add_front(new_node)\n\nNeed consider capacity 0: get returns -1, put no-op. If capacity negative raise.\n\nTests:\nimport unittest\nclass TestLRUCache(unittest.TestCase):\n    def test_basic_get_put(self):\n        cache = LRUCache(2)\n        cache.put(1,1); cache.put(2,2)\n        self.assertEqual(cache.get(1),1)\n        cache.put(3,3) # evicts 2\n        self.assertEqual(cache.get(2), -1)\n        self.assertEqual(cache.get(3),3)\n        cache.put(4,4) # evicts 1\n        self.assertEqual(cache.get(1), -1)\n        self.assertEqual(cache.get(3),3)\n        self.assertEqual(cache.get(4),4)\n\n    def test_update_existing(self):\n        cache = LRUCache(2)\n        cache.put(1,1); cache.put(2,2)\n        cache.put(1,10)\n        cache.put(3,3) # evicts 2 not 1\n        self.assertEqual(cache.get(1),10)\n        self.assertEqual(cache.get(2),-1)\n        self.assertEqual(cache.get(3),3)\n\n    def test_capacity_zero(self):\n        cache = LRUCache(0)\n        cache.put(1,1)\n        self.assertEqual(cache.get(1), -1)\n\n    def test_negative_capacity(self):\n        with self.assertRaises(ValueError): LRUCache(-1)\n\n    def test_order_after_get(self):\n        cache = LRUCache(3)\n        cache.put(1,1); cache.put(2,2); cache.put(3,3)\n        cache.get(1) # order: 1,3,2\n        cache.put(4,4) # evict 2\n        self.assertEqual(cache.get(2), -1)\n        self.assertEqual(cache.get(1),1)\n        self.assertEqual(cache.get(3),3)\n        self.assertEqual(cache.get(4),4)\n\n    def test_large_random? maybe not.\n\nCould include doctest? Maybe simple main.\n\nNeed explain design: hash map key->node for O(1) lookup; doubly"
+            }
+          }
+        ],
+        "created": 1795691951,
+        "model": "bonsai-2.5-27b",
+        "system_fingerprint": "b12232-f70247610",
+        "object": "chat.completion",
+        "usage": {
+          "completion_tokens": 1024,
+          "prompt_tokens": 81,
+          "total_tokens": 1105,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        },
+        "id": "chatcmpl-fQVfOuqvJSkI6nk7KeAN5dUQLKSZkReM",
+        "timings": {
+          "cache_n": 0,
+          "prompt_n": 81,
+          "prompt_ms": 236.409,
+          "prompt_per_token_ms": 2.9186296296296295,
+          "prompt_per_second": 342.6265497506441,
+          "predicted_n": 1024,
+          "predicted_ms": 13024.391,
+          "predicted_per_token_ms": 12.731565004887585,
+          "predicted_per_second": 78.54493926049979
+        }
+      },
+      "elapsed_seconds": 13.522914199973457,
+      "end_to_end_tokens_per_second": 75.72332300991823,
+      "draft_acceptance": null
+    },
+    {
+      "name": "reasoning-2",
+      "measured": true,
+      "request": {
+        "model": "bonsai-2.5-27b",
+        "messages": [
+          {
+            "role": "user",
+            "content": "A warehouse has 120 boxes. Each morning it ships one third of its boxes and receives 24 new boxes. Find a formula for its inventory after n days, its long-run limit, and the first day when inventory falls below 80. Explain each step."
+          }
+        ],
+        "max_tokens": 1024,
+        "temperature": 0,
+        "seed": 42,
+        "chat_template_kwargs": {
+          "enable_thinking": true
+        },
+        "cache_prompt": false
+      },
+      "response": {
+        "choices": [
+          {
+            "finish_reason": "length",
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "",
+              "reasoning_content": "We need answer math problem. Need solve carefully. Problem: warehouse has 120 boxes. Each morning it ships one third of its boxes and receives 24 new boxes. Find formula for inventory after n days, long-run limit, first day when inventory falls below 80. Explain each step.\n\nNeed interpret sequence. Initial inventory? \"has 120 boxes. Each morning it ships one third of its boxes and receives 24 new boxes.\" Need define after n days. Ambiguity: order of operations? Each morning ships one third of its boxes and receives 24 new boxes. If starts day 1 morning with 120, ships 1/3 of 120 = 40, receives 24, end day 1 inventory = 104. Or maybe after n days means after n mornings? Need formula. Recurrence: I_{n+1} = (2/3) I_n + 24 if I_n is inventory at start of day n (before shipping) or after previous day's receipt. If I_0=120. Then after n days (end of day n) I_n = (2/3) I_{n-1}+24. Solve: fixed point L = (2/3)L+24 => L/3=24 => L=72. I_n = 72 + (120-72)(2/3)^n = 72 + 48(2/3)^n. Check n=1: 72+32=104. Good.\n\nLong-run limit 72.\n\nFirst day when inventory falls below 80. Need find smallest n such that I_n < 80? If after n days. I_n = 72+48(2/3)^n < 80 => 48(2/3)^n < 8 => (2/3)^n < 1/6. Take logs: n > ln(1/6)/ln(2/3). Since ln(2/3) negative. Compute. ln(1/6)=-1.791759, ln(2/3)=-0.405465, ratio=4.418... So n > 4.418, smallest integer n=5. Check I_4 = 72+48*(16/81)=72+768/81=72+9.4815=81.4815 >80. I_5=72+48*(32/243)=72+1536/243=72+6.321=78.321 <80. So first day after 5 days.\n\nBut need consider if \"first day when inventory falls below 80\" could be during morning after shipping before receiving? The wording: Each morning it ships one third of its boxes and receives 24 new boxes. Find formula for inventory after n days, long-run limit, and first day when inventory falls below 80. If inventory after n days likely end of day. But \"falls below 80\" could occur after shipping in morning before receiving? Let's examine. If start day 5 with I_4=81.48. Morning ships 1/3: 54.32, below 80, then receives 24 -> 78.32. So it falls below 80 on day 5 morning after shipping. If only after days, day 5. If checking after shipping before receiving, day 5 too? Let's see day 4 start I_3? I_3=72+48*(8/27)=72+14.222=86.222. Ship -> 57.48 below 80. Wait if checking after shipping, it falls below 80 on day 2? Start day 2 I_1=104, ship 34.67 -> 69.33 below 80. That seems too trivial and not likely. The phrase \"inventory after n days\" suggests after receiving. \"first day when inventory falls below 80\" likely after daily operations. But could be ambiguous. Need maybe mention assumption. We can state assuming inventory is measured after the morning shipment and receipt (end of day). If instead measured immediately after shipment, it would be below 80 on day 2. But likely answer day 5. Need decide. The problem likely from recurrence sequences: initial 120, each day ships 1/3 and receives 24. Find formula, limit, first"
+            }
+          }
+        ],
+        "created": 1795691964,
+        "model": "bonsai-2.5-27b",
+        "system_fingerprint": "b12232-f70247610",
+        "object": "chat.completion",
+        "usage": {
+          "completion_tokens": 1024,
+          "prompt_tokens": 109,
+          "total_tokens": 1133,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        },
+        "id": "chatcmpl-J8npXYtuAri0KnaNtzkSa6SoZdxH4Dfp",
+        "timings": {
+          "cache_n": 0,
+          "prompt_n": 109,
+          "prompt_ms": 222.973,
+          "prompt_per_token_ms": 2.0456238532110094,
+          "prompt_per_second": 488.8484255941302,
+          "predicted_n": 1024,
+          "predicted_ms": 13077.262,
+          "predicted_per_token_ms": 12.783247311827958,
+          "predicted_per_second": 78.2273842949694
+        }
+      },
+      "elapsed_seconds": 13.30357400001958,
+      "end_to_end_tokens_per_second": 76.97179720265343,
+      "draft_acceptance": null
+    },
+    {
+      "name": "prose-2",
+      "measured": true,
+      "request": {
+        "model": "bonsai-2.5-27b",
+        "messages": [
+          {
+            "role": "user",
+            "content": "Write a detailed guide of about 700 words to designing reliable backups for a small software company. Cover restoration tests, retention, encryption, offsite copies and operational ownership."
+          }
+        ],
+        "max_tokens": 1024,
+        "temperature": 0,
+        "seed": 42,
+        "chat_template_kwargs": {
+          "enable_thinking": false
+        },
+        "cache_prompt": false
+      },
+      "response": {
+        "choices": [
+          {
+            "finish_reason": "length",
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "# Designing Reliable Backups for a Small Software Company\n\nFor a small software company, data loss is not just an inconvenience; it is an existential threat. A single corrupted database, a ransomware attack, or an accidental deletion can halt development, breach client trust, and drain limited resources. Designing a backup strategy requires moving beyond the \"set it and forget it\" mentality. A reliable backup system is not merely about storing data; it is about guaranteeing that you can actually restore it when you need it. This guide outlines the critical pillars of a robust backup strategy: restoration testing, retention policies, encryption, offsite redundancy, and operational ownership.\n\n### 1. The Golden Rule: Test Your Restorations\n\nThe most common failure in backup strategies is the assumption that a backup exists because it was created. A backup that has never been restored is not a backup; it is a hope. For a software company, where data integrity is paramount, you must treat restoration as a core operational task.\n\nImplement a quarterly restoration test schedule. Do not just restore a file; restore entire virtual machines or database instances into an isolated, sandboxed environment. Verify that the application starts, that data integrity checks pass, and that user access works. Document the time it takes to restore (Recovery Time Objective, or RTO) and the amount of data lost (Recovery Point Objective, or RPO). If a restore takes 12 hours, you need to know that now, not during a crisis. If your RPO is 24 hours, you must accept that you might lose a day\u2019s worth of code commits or client data. Align these metrics with your business risk tolerance.\n\n### 2. Retention Policies: Balancing Cost and Compliance\n\nRetention policies determine how long you keep backups and how often you keep them. For a small software company, you need a tiered approach to balance storage costs with safety.\n\n*   **Daily Backups:** Keep these for 30 days. This allows you to recover from recent mistakes or minor incidents.\n*   **Weekly Backups:** Keep these for 12 weeks. This protects against longer-term issues or gradual data corruption.\n*   **Monthly Backups:** Keep these for 12 months. This is crucial for compliance, legal holds, and recovering from major disasters.\n*   **Yearly Backups:** Keep these for 5\u20137 years. This is often required for tax records, audit trails, and long-term project archives.\n\nAutomate the deletion of old backups to prevent storage costs from spiraling. However, never delete a backup until you have verified that the next tier of backups is intact and accessible.\n\n### 3. Encryption: Protecting Data in Transit and at Rest\n\nSoftware companies handle sensitive intellectual property, client data, and often personally identifiable information (PII). Encryption is non-negotiable.\n\n*   **At Rest:** Ensure that all backup data is encrypted using strong algorithms (e.g., AES-256). This protects your backups if they are stolen or if the storage media is compromised.\n*   **In Transit:** Use TLS 1.2 or higher for all data transfers between your primary systems and backup storage.\n*   **Key Management:** This is often overlooked. If you lose the encryption keys, your backups are useless. Store keys in a secure, separate location (e.g., a Hardware Security Module or a cloud key management service) with strict access controls. Never store keys with the backups themselves.\n\n### 4. Offsite Copies: The 3-2-1 Rule\n\nThe industry standard is the 3-2-1 rule: Keep three copies of your data, on two different types of media, with one copy offsite. For a small software company, this translates to:\n\n*   **Primary Copy:** Your live production environment.\n*   **Secondary Copy:** A local backup on a different server or NAS (Network Attached Storage) within your office or data center. This is for quick, local restores.\n*   **Tertiary Copy:** An offsite backup in the cloud (e.g., AWS S3, Azure Blob, or Backblaze B2) or a remote data center. This protects you against physical disasters like fire, flood, or theft.\n\nEnsure that your offsite copy is immutable or versioned. Ransomware often targets backups to delete them. Immutable storage (where data cannot be altered or deleted for a set period) or versioning (where old versions are retained) can prevent attackers from wiping your recovery options.\n\n### 5. Operational Ownership: Assigning Responsibility\n\nA backup system fails when no one is responsible for it. In a small company, roles are often blurred, but you must assign clear ownership.\n\n*   **Backup Owner:** A designated IT lead or DevOps engineer who is responsible for configuring, monitoring, and testing backups. This person should have access to all backup logs and alerts.\n*   **"
+            }
+          }
+        ],
+        "created": 1795691977,
+        "model": "bonsai-2.5-27b",
+        "system_fingerprint": "b12232-f70247610",
+        "object": "chat.completion",
+        "usage": {
+          "completion_tokens": 1024,
+          "prompt_tokens": 48,
+          "total_tokens": 1072,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        },
+        "id": "chatcmpl-0x3eUqD7TJW0gaya08CDE0CLeNePRnu8",
+        "timings": {
+          "cache_n": 0,
+          "prompt_n": 48,
+          "prompt_ms": 117.226,
+          "prompt_per_token_ms": 2.4422083333333333,
+          "prompt_per_second": 409.46547694197534,
+          "predicted_n": 1024,
+          "predicted_ms": 13091.265,
+          "predicted_per_token_ms": 12.796935483870968,
+          "predicted_per_second": 78.1437088012503
+        }
+      },
+      "elapsed_seconds": 13.211325300042517,
+      "end_to_end_tokens_per_second": 77.50925639509494,
+      "draft_acceptance": null
+    }
+  ],
+  "gpu_samples": [
+    {
+      "utc": "2026-11-26T11:18:15.896726+00:00",
+      "memory_util_power": "8147, 1, 20.17"
+    },
+    {
+      "utc": "2026-11-26T11:18:16.957473+00:00",
+      "memory_util_power": "8291, 96, 80.46"
+    },
+    {
+      "utc": "2026-11-26T11:18:18.022487+00:00",
+      "memory_util_power": "8297, 94, 150.50"
+    },
+    {
+      "utc": "2026-11-26T11:18:19.076817+00:00",
+      "memory_util_power": "8297, 94, 207.28"
+    },
+    {
+      "utc": "2026-11-26T11:18:20.137624+00:00",
+      "memory_util_power": "8297, 93, 204.96"
+    },
+    {
+      "utc": "2026-11-26T11:18:21.184960+00:00",
+      "memory_util_power": "8323, 94, 206.07"
+    },
+    {
+      "utc": "2026-11-26T11:18:22.246369+00:00",
+      "memory_util_power": "8324, 96, 206.66"
+    },
+    {
+      "utc": "2026-11-26T11:18:23.307547+00:00",
+      "memory_util_power": "8333, 92, 211.17"
+    },
+    {
+      "utc": "2026-11-26T11:18:24.369104+00:00",
+      "memory_util_power": "8325, 96, 209.85"
+    },
+    {
+      "utc": "2026-11-26T11:18:25.434810+00:00",
+      "memory_util_power": "8338, 95, 211.63"
+    },
+    {
+      "utc": "2026-11-26T11:18:26.504303+00:00",
+      "memory_util_power": "8328, 95, 213.14"
+    },
+    {
+      "utc": "2026-11-26T11:18:27.568457+00:00",
+      "memory_util_power": "8326, 95, 215.07"
+    },
+    {
+      "utc": "2026-11-26T11:18:28.628840+00:00",
+      "memory_util_power": "8326, 95, 218.11"
+    },
+    {
+      "utc": "2026-11-26T11:18:29.695821+00:00",
+      "memory_util_power": "8317, 96, 220.19"
+    },
+    {
+      "utc": "2026-11-26T11:18:30.755112+00:00",
+      "memory_util_power": "8317, 96, 220.12"
+    },
+    {
+      "utc": "2026-11-26T11:18:31.820976+00:00",
+      "memory_util_power": "8349, 95, 140.16"
+    },
+    {
+      "utc": "2026-11-26T11:18:32.878712+00:00",
+      "memory_util_power": "8349, 95, 209.25"
+    },
+    {
+      "utc": "2026-11-26T11:18:33.940351+00:00",
+      "memory_util_power": "8341, 95, 209.84"
+    },
+    {
+      "utc": "2026-11-26T11:18:35.007493+00:00",
+      "memory_util_power": "8353, 95, 212.18"
+    },
+    {
+      "utc": "2026-11-26T11:18:36.069747+00:00",
+      "memory_util_power": "8349, 95, 212.78"
+    },
+    {
+      "utc": "2026-11-26T11:18:37.129337+00:00",
+      "memory_util_power": "8340, 95, 210.85"
+    },
+    {
+      "utc": "2026-11-26T11:18:38.190256+00:00",
+      "memory_util_power": "8340, 96, 214.57"
+    },
+    {
+      "utc": "2026-11-26T11:18:39.257991+00:00",
+      "memory_util_power": "8336, 93, 216.40"
+    },
+    {
+      "utc": "2026-11-26T11:18:40.317578+00:00",
+      "memory_util_power": "8336, 95, 214.76"
+    },
+    {
+      "utc": "2026-11-26T11:18:41.380620+00:00",
+      "memory_util_power": "8326, 96, 217.49"
+    },
+    {
+      "utc": "2026-11-26T11:18:42.441168+00:00",
+      "memory_util_power": "8326, 96, 221.40"
+    },
+    {
+      "utc": "2026-11-26T11:18:43.506248+00:00",
+      "memory_util_power": "8326, 96, 223.79"
+    },
+    {
+      "utc": "2026-11-26T11:18:44.570703+00:00",
+      "memory_util_power": "8326, 95, 222.89"
+    },
+    {
+      "utc": "2026-11-26T11:18:45.632930+00:00",
+      "memory_util_power": "8326, 96, 162.79"
+    },
+    {
+      "utc": "2026-11-26T11:18:46.689329+00:00",
+      "memory_util_power": "8326, 96, 218.31"
+    },
+    {
+      "utc": "2026-11-26T11:18:47.749145+00:00",
+      "memory_util_power": "8326, 96, 220.58"
+    },
+    {
+      "utc": "2026-11-26T11:18:48.812845+00:00",
+      "memory_util_power": "8326, 96, 221.15"
+    },
+    {
+      "utc": "2026-11-26T11:18:49.873274+00:00",
+      "memory_util_power": "8326, 96, 224.64"
+    },
+    {
+      "utc": "2026-11-26T11:18:50.935371+00:00",
+      "memory_util_power": "8326, 95, 226.11"
+    },
+    {
+      "utc": "2026-11-26T11:18:51.985499+00:00",
+      "memory_util_power": "8326, 96, 223.82"
+    },
+    {
+      "utc": "2026-11-26T11:18:53.054907+00:00",
+      "memory_util_power": "8326, 96, 227.03"
+    },
+    {
+      "utc": "2026-11-26T11:18:54.120366+00:00",
+      "memory_util_power": "8326, 96, 228.52"
+    },
+    {
+      "utc": "2026-11-26T11:18:55.176992+00:00",
+      "memory_util_power": "8326, 96, 227.11"
+    },
+    {
+      "utc": "2026-11-26T11:18:56.235969+00:00",
+      "memory_util_power": "8326, 96, 226.87"
+    },
+    {
+      "utc": "2026-11-26T11:18:57.297255+00:00",
+      "memory_util_power": "8326, 95, 226.77"
+    },
+    {
+      "utc": "2026-11-26T11:18:58.365562+00:00",
+      "memory_util_power": "8326, 37, 216.81"
+    },
+    {
+      "utc": "2026-11-26T11:18:59.421542+00:00",
+      "memory_util_power": "8326, 95, 150.20"
+    },
+    {
+      "utc": "2026-11-26T11:19:00.489079+00:00",
+      "memory_util_power": "8326, 96, 219.11"
+    },
+    {
+      "utc": "2026-11-26T11:19:01.552588+00:00",
+      "memory_util_power": "8326, 96, 219.85"
+    },
+    {
+      "utc": "2026-11-26T11:19:02.615024+00:00",
+      "memory_util_power": "8326, 95, 224.24"
+    },
+    {
+      "utc": "2026-11-26T11:19:03.674793+00:00",
+      "memory_util_power": "8326, 95, 224.42"
+    },
+    {
+      "utc": "2026-11-26T11:19:04.739580+00:00",
+      "memory_util_power": "8326, 96, 223.34"
+    },
+    {
+      "utc": "2026-11-26T11:19:05.809981+00:00",
+      "memory_util_power": "8326, 96, 226.86"
+    },
+    {
+      "utc": "2026-11-26T11:19:06.875690+00:00",
+      "memory_util_power": "8326, 96, 226.95"
+    },
+    {
+      "utc": "2026-11-26T11:19:07.938094+00:00",
+      "memory_util_power": "8326, 96, 226.13"
+    },
+    {
+      "utc": "2026-11-26T11:19:09.000963+00:00",
+      "memory_util_power": "8326, 97, 229.48"
+    },
+    {
+      "utc": "2026-11-26T11:19:10.064557+00:00",
+      "memory_util_power": "8326, 96, 229.18"
+    },
+    {
+      "utc": "2026-11-26T11:19:11.130702+00:00",
+      "memory_util_power": "8326, 97, 229.31"
+    },
+    {
+      "utc": "2026-11-26T11:19:12.199606+00:00",
+      "memory_util_power": "8326, 95, 203.64"
+    },
+    {
+      "utc": "2026-11-26T11:19:13.270075+00:00",
+      "memory_util_power": "8326, 96, 218.56"
+    },
+    {
+      "utc": "2026-11-26T11:19:14.335878+00:00",
+      "memory_util_power": "8326, 96, 220.47"
+    },
+    {
+      "utc": "2026-11-26T11:19:15.396538+00:00",
+      "memory_util_power": "8349, 96, 221.51"
+    },
+    {
+      "utc": "2026-11-26T11:19:16.453928+00:00",
+      "memory_util_power": "8349, 97, 223.47"
+    },
+    {
+      "utc": "2026-11-26T11:19:17.519202+00:00",
+      "memory_util_power": "8349, 94, 223.76"
+    },
+    {
+      "utc": "2026-11-26T11:19:18.584785+00:00",
+      "memory_util_power": "8349, 96, 226.53"
+    },
+    {
+      "utc": "2026-11-26T11:19:19.650210+00:00",
+      "memory_util_power": "8349, 95, 227.57"
+    },
+    {
+      "utc": "2026-11-26T11:19:20.714308+00:00",
+      "memory_util_power": "8346, 96, 227.18"
+    },
+    {
+      "utc": "2026-11-26T11:19:21.777594+00:00",
+      "memory_util_power": "8346, 96, 229.88"
+    },
+    {
+      "utc": "2026-11-26T11:19:22.840305+00:00",
+      "memory_util_power": "8347, 96, 230.03"
+    },
+    {
+      "utc": "2026-11-26T11:19:23.905387+00:00",
+      "memory_util_power": "8347, 96, 228.86"
+    },
+    {
+      "utc": "2026-11-26T11:19:24.968814+00:00",
+      "memory_util_power": "8346, 95, 228.46"
+    },
+    {
+      "utc": "2026-11-26T11:19:26.031062+00:00",
+      "memory_util_power": "8346, 96, 208.38"
+    },
+    {
+      "utc": "2026-11-26T11:19:27.097723+00:00",
+      "memory_util_power": "8346, 96, 221.51"
+    },
+    {
+      "utc": "2026-11-26T11:19:28.155276+00:00",
+      "memory_util_power": "8347, 96, 223.69"
+    },
+    {
+      "utc": "2026-11-26T11:19:29.218628+00:00",
+      "memory_util_power": "8347, 95, 224.24"
+    },
+    {
+      "utc": "2026-11-26T11:19:30.278906+00:00",
+      "memory_util_power": "8346, 96, 223.95"
+    },
+    {
+      "utc": "2026-11-26T11:19:31.336328+00:00",
+      "memory_util_power": "8338, 96, 224.65"
+    },
+    {
+      "utc": "2026-11-26T11:19:32.400793+00:00",
+      "memory_util_power": "8334, 95, 225.19"
+    },
+    {
+      "utc": "2026-11-26T11:19:33.459881+00:00",
+      "memory_util_power": "8346, 96, 224.13"
+    },
+    {
+      "utc": "2026-11-26T11:19:34.525350+00:00",
+      "memory_util_power": "8346, 94, 226.10"
+    },
+    {
+      "utc": "2026-11-26T11:19:35.590546+00:00",
+      "memory_util_power": "8346, 94, 226.86"
+    },
+    {
+      "utc": "2026-11-26T11:19:36.652628+00:00",
+      "memory_util_power": "8338, 96, 228.55"
+    },
+    {
+      "utc": "2026-11-26T11:19:37.716737+00:00",
+      "memory_util_power": "8333, 96, 229.65"
+    }
+  ],
+  "summary": {
+    "median_decode_tps": 78.18554654810984,
+    "min_decode_tps": 76.6168801741203,
+    "max_decode_tps": 78.6920352968009,
+    "drafted": 0,
+    "accepted": 0,
+    "draft_acceptance": null
+  }
+}

@@ -1,0 +1,12 @@
+{
+    "value":  [
+                  {
+                      "id":  0,
+                      "path":  "/models/bonsai2-27b-uncensored-own42-lora.gguf",
+                      "scale":  1.5,
+                      "task_name":  "",
+                      "prompt_prefix":  ""
+                  }
+              ],
+    "Count":  1
+}

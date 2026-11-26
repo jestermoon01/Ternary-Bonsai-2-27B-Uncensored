@@ -1,0 +1,5 @@
+runtime/
+downloads/
+.qwen-paused
+__pycache__/
+models/*.gguf

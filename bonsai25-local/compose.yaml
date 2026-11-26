@@ -1,0 +1,63 @@
+name: bonsai25-local
+services:
+  inference:
+    image: bonsai25-local-prism:prism-b12232-f702476
+    build: .
+    gpus: all
+    working_dir: /runtime
+    restart: "no"
+    ports:
+      - "127.0.0.1:8003:8080"
+    volumes:
+      - ./models:/models:ro
+    environment:
+      LD_LIBRARY_PATH: /runtime:/usr/local/cuda/lib64:/usr/lib/x86_64-linux-gnu
+    entrypoint: ["/runtime/llama-server"]
+    command:
+      - --model
+      - /models/Ternary-Bonsai-2.5-27B-PTQ1_0-mtp.gguf
+      - --alias
+      - bonsai-2.5-27b
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - --ctx-size
+      - "32768"
+      - --parallel
+      - "1"
+      - --threads
+      - "8"
+      - --n-gpu-layers
+      - "99"
+      - --flash-attn
+      - "on"
+      - --cache-type-k
+      - ${CACHE_TYPE:-f16}
+      - --cache-type-v
+      - ${CACHE_TYPE:-f16}
+      - --batch-size
+      - "512"
+      - --ubatch-size
+      - "128"
+      - --jinja
+      - --spec-type
+      - ${SPEC_TYPE:-draft-mtp}
+      - --spec-draft-n-max
+      - ${SPEC_DRAFT_MAX:-1}
+      - --spec-draft-p-min
+      - "0.1"
+      - --temp
+      - "1.0"
+      - --top-p
+      - "0.95"
+      - --top-k
+      - "20"
+      - --min-p
+      - "0"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 120s
